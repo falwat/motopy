@@ -11,6 +11,23 @@ Contact:
 --------
     Jackie Wang <falwat@163.com>
 
+How to Use
+----------
+
+Import `motopy` and use `motopy.make()` translate your mfile:
+
+```py
+import motopy
+
+motopy.make(
+    entryfile='<the script filename without extension(*.m)>',
+    input_path='<the input path of *.m files>', 
+    output_path='<the output path of *.py files>' 
+)
+```
+
+Please see [readme](https://github.com/falwat/motopy) for more information.
+
 License:
 --------
 MIT License
@@ -36,7 +53,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '1.0.0'
+__version__ = '2.0.0'
 __all__ = ['make', 'WARN', 'INFO', 'DEBUG']
 __author__ = 'Jackie Wang <falwat@163.com>'
 
@@ -46,6 +63,7 @@ from logging import WARN, INFO, DEBUG
 from .constants import *
 from .translate import translate_file
 
+console_handler = None
 
 def make(entry_basename: str, input_path:str='.', output_path:str='.', * ,
         replaced_functions:'dict[str, tuple[str, str]]'= {},
@@ -91,12 +109,14 @@ def make(entry_basename: str, input_path:str='.', output_path:str='.', * ,
     fmt = '%(asctime)s [%(levelname)s] : %(message)s'
     logging.basicConfig(filename=logging_file, filemode='w', 
         level=logging_level, format=fmt)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging_level)
-    formatter = logging.Formatter(fmt)
-    console_handler.setFormatter(formatter)
-    logger = logging.getLogger()
-    logger.addHandler(console_handler)
+    global console_handler
+    if console_handler is None:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging_level)
+        formatter = logging.Formatter(fmt)
+        console_handler.setFormatter(formatter)
+        logger = logging.getLogger()
+        logger.addHandler(console_handler)
 
     _locals = {}
     _globals = _locals

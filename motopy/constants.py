@@ -27,7 +27,7 @@ TT_FMT_STR = 'fmt_str'
 # symbol
 TT_SYM = "sym"
 # entry
-TT_FILE = "file"
+TT_ROOT = "root"
 
 
 # see: MATLAB Operators and Special Characters
@@ -63,6 +63,7 @@ op_dict = {
 """ `func_name_dict` is used to replace the function name simply.
 """
 func_name_dict = {
+    'abs': 'np.abs',
     'acos': 'np.arccos',
     'asin': 'np.arcsin',
     'atan': 'np.arctan',
@@ -81,9 +82,12 @@ func_name_dict = {
     'log': 'np.log',
     'log10': 'np.log10',
     'log2': 'np.log2',
+    'mod': 'np.mod',
     'ndims': 'np.ndim',
     'numel': 'np.size',
+    'num2str': 'str',
     'pinv': 'linalg.pinv',
+    'rand': 'random.rand',
     'rank': 'linalg.matrix_rank',
     'round': 'np.round',
     'sin': 'np.sin',
@@ -93,13 +97,15 @@ func_name_dict = {
 }
 
 binary_operators = ['.', '^', '.^', '*', '/', '\\', '.*', './', '.\\', '+', '-', ':', '<', '<=', '>', '>=', '==', '~=',  '&', '|', '&&',  '||',  '=']
-left_unary_operators = ['+?', '-?', '~']
+left_unary_operators = ['+?', '-?', '~', '!']
 right_unary_operators = ["'", ".'"]
 
 bracket_pairs = {'(':')', '[':']', '{':'}'}  
 
 matlab_blocks = ["if", "elseif", "else", "switch", "case", "otherwise",
     "for", "while", "try", "catch", "parfor", "function"]
+
+fctrl_keywords = ['break', 'continue', 'return']
 
 # matlab keywords
 matlab_keywords = [
@@ -111,10 +117,10 @@ matlab_keywords = [
 matlab_commands = ['clc', 'clf', 'close', 'clear', 'load', 'save', 'global']
 
 value_dict = {
-    'true':True,
-    'false':False,
-    'inf': np.Inf,
-    'Inf': np.Inf,
-    'nan': np.NaN,
-    'NaN': np.NaN
+    'true':'True',
+    'false':'False',
+    'inf': 'np.Inf',
+    'Inf': 'np.Inf',
+    'nan': 'np.NaN',
+    'NaN': 'np.NaN'
 }

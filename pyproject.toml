@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "motopy"
-version = "1.0.0"
+version = "2.0.0"
 description = "The tool of converting Matlab/Octave code TO PYthon."
 authors = [
     { name="Jackie Wang", email="falwat@163.com" },

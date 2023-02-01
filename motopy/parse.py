@@ -3,7 +3,6 @@ Parse tokens stream to token tree.
 
 This is a part of motopy.
 """
-import json
 from .constants import *
 from .token import Token
 
@@ -13,7 +12,8 @@ def parse_bracket_inner(tokens: 'list[Token]'):
     """
     if len(tokens) == 0:
         return []
-    rows:'list[Token]' = [Token(TT_OP, ',', row=tokens[0].row, col=tokens[0].col, children=[])]
+    root = tokens[0].root
+    rows:'list[Token]' = [Token(TT_OP, ',', row=tokens[0].row, col=tokens[0].col, children=[], root=root)]
     si = 0
     for i, token in enumerate(tokens):
         # element split
@@ -27,7 +27,7 @@ def parse_bracket_inner(tokens: 'list[Token]'):
             e = parse_expression(tokens[si:i])
             rows[-1].children.append(e)
             e.parent = rows[-1]
-            row = Token(TT_OP, ',', row=tokens[si].row, col=tokens[si].col, children=[])
+            row = Token(TT_OP, ',', row=tokens[si].row, col=tokens[si].col, children=[], root=root)
             rows.append(row)
             si = i + 1
         elif token.ttype == TT_EOL:
@@ -129,6 +129,7 @@ def parse_block(tokens: 'list[Token]', kw: str = None):
                 else:
                     t = parse_expression(tokens[si:i])
                 statments.append(t)
+                statments.append(token)
             si = i + 1
         elif token.ttype == TT_KW:
             if token.text == 'end' and len(stack) == 0:
@@ -142,26 +143,76 @@ def parse_block(tokens: 'list[Token]', kw: str = None):
                 token.ttype = TT_BLOCK
                 statments.append(token)
                 tokens = tokens[:i+1] + rem_tokens
+                if token.text == 'if':
+                    _token = token.move()
+                    token.text = 'if..else'
+                    token.set_children([_token])
+                    i += 1
+                    while i < len(tokens) and tokens[i].text in ['elseif', 'else']:
+                        ss, rem_tokens = parse_block(tokens[i+1:], kw=tokens[i].text)
+                        tokens[i].set_children(ss)
+                        tokens[i].ttype = TT_BLOCK
+                        token.append_children(tokens[i])
+                        tokens = tokens[:i+1] + rem_tokens
+                        i += 1
                 si = i + 1
         i += 1
+    if kw == 'function' and i >= len(tokens):
+        # function without end
+        return statments, tokens[i:]
     if si < len(tokens):
         statments.append(parse_expression(tokens[si:]))
     return statments, tokens  
 
-def parse(tokens: 'list[Token]'):
-    statments, _ = parse_block(tokens)
-    return statments
+def split_func_block(token: Token):
+    """ Split `token` of function
+    """
+    assert token.ttype == TT_BLOCK and token.text == 'function'
+    token_header = token.children[0]
+    rtoken = token_header.rchild
+    ltoken = token_header.lchild
+    if token_header.text == '=':
+        # with return value
+        assert rtoken.ttype == TT_OP and rtoken.text == '?()'
+        token.set_rchild(rtoken)
+        if ltoken.ttype == TT_ID:
+            # only one return value
+            token.set_lchild(ltoken)
+        elif ltoken.ttype == TT_OP and ltoken.text == '[]':
+            # multi return values
+            ltoken.text = ','
+            token.set_lchild(ltoken)
+        else:
+            raise Exception(f'syntax error at line {token.row}')
+    elif token_header.text == '?()':
+        # without return value
+        token.set_rchild(token_header)
+        token.set_lchild()
+    else:
+        raise Exception(f'syntax error at line {token.row}')
 
-if __name__ == '__main__':
-    from scan import scan
-    with open('tests/array_test.m', 'r') as fp:
-        lines = fp.readlines()
-    tokens = scan(lines)
-    with open('tests/scan_array_test.json', 'w') as fp:
-        lst = [token.todict() for token in tokens]
-        json.dump(lst, fp, indent=4)
-    # token_expr = parse_expression(tokens)
-    statments = parse(tokens)
-    with open('tests/parse_array_test.json', 'w') as fp:
-        lst = [token.todict() for token in statments]
-        json.dump(lst, fp, indent=4)
+    token.children = token.children[1:]
+    token.text = 'def'
+    fname = token.rchild.lchild.text
+    return fname
+
+def parse_function(token: Token):
+    assert token.ttype == TT_ROOT or token.ttype == TT_BLOCK and token.text == 'function'
+    for i, t in enumerate(token.children):
+        if t.ttype == TT_BLOCK and t.text == 'function':
+            break
+    else:
+        return
+    for t in token.children[i:]:
+        if t.ttype == TT_BLOCK and t.text == 'function':
+            parse_function(t)
+            fname = split_func_block(t)
+            token.functions[fname] = t
+    del token.children[i:]
+
+
+def parse(root: Token):
+    statments, _ = parse_block(root.children)
+    root.set_children(statments)
+    parse_function(root)
+

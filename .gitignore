@@ -1,5 +1,5 @@
 __pycache__
 dist
-tests/*.py
+tests/out
 tests/*.json
 *.log

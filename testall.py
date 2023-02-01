@@ -3,28 +3,37 @@ import motopy
 
 if __name__ == '__main__':
     input_path = './tests'
-    output_path = './tests'
+    output_path = './tests/out'
     entryfiles = [
         'array_test',
-        # 'cell_test',
-        'cmd_test',
-        # 'for_range_test',
-        # 'for_test',
-        # 'func_test',
-        # 'func_test2',
-        # 'global_test',
-        # 'if_else_test',
+        'break_test',
+        'cell_test',
+        # 'cmd_test',
+        'continue_test',
+        'dir_test',
+        'find_test',
+        'for_range_test',                                                               
+        'for_test',
+        'func_test',
+        'func_test2',
+        'global_test',
+        'if_else_test',
         # 'load_test',
-        # 'op_test',
-        # 'range_test',
-        # 'slice_test',
-        # 'test',
-        # 'test2',
+        'nested_func_test',
+        'op_test',
+        'printf_test',
+        'range_test',
+        'return_test',
+        'slice_test',
+        'str_test',
+        'struct_test',
+        'test',
+        'tic_toc_test',
     ]
     for filename in entryfiles:
-        motopy.make(filename, input_path, output_path, indent = 4)
+        motopy.make(filename, input_path, output_path, indent = 4, logging_level=motopy.DEBUG)
         basename = os.path.splitext(filename)[0]
-        expect_filename = output_path + '/' + basename+'_expect.py'
+        expect_filename = input_path + '/' + basename+'.py'
         output_filename = output_path + '/' + basename+'.py'
         with open(output_filename, 'r') as fp:
             output_text = fp.read()
