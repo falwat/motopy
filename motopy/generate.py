@@ -38,6 +38,17 @@ def generate_expression(token: Token, **kwargs):
         if rtoken is not None:
             text += generate(rtoken, **kwargs)[0]
         lines.append(text)
+    elif token.text == '::':
+        text = ''
+        if ltoken is not None:
+            text += generate(ltoken, **kwargs)[0]
+        text += ':'
+        if len(token.children) > 0:
+            text += generate(token.children[0])[0]
+        text += ':'
+        if rtoken is not None:
+            text += generate(rtoken, **kwargs)[0]
+        lines.append(text)
     elif token.text == '.':
         text = ''
         if ltoken is not None:
@@ -105,7 +116,7 @@ def generate_block(token: Token, indent:int=4, returns=None, **kwargs):
         for fn in token.functions:
             sublines.extend(generate_block(token.functions[fn], indent=indent, **kwargs))
         lines.extend([' ' * _indent + text for text in sublines])
-    elif token.text == 'else':
+    elif token.text in ['else', 'try', 'catch', 'except']:
         text = token.text + ':'
         lines.append(text)
     for i in range(si, len(token.children)):
@@ -121,8 +132,7 @@ def generate_block(token: Token, indent:int=4, returns=None, **kwargs):
 
 def generate_root(root: RootToken, indent=4, **kwargs):
     assert root.ttype == TT_ROOT
-    lines = generate_import_as(root.import_as)
-    lines.extend(generate_imports(root.imports))
+    lines = generate_imports(root.imports)
     if len(lines) > 0:
         lines.extend(['', ''])
     for fn in root.functions:
@@ -131,36 +141,46 @@ def generate_root(root: RootToken, indent=4, **kwargs):
         lines.extend(sublines)
         lines.append('')
     last_ttype = TT_EOL
+    skiped = False
     for token in root.children:
-        sublines = generate(token, **kwargs)
-        if token.ttype == TT_EOL:
-            if len(lines) == 0 or last_ttype == TT_EOL:
-                lines.append(f'{sublines[0]}')
-            elif len(sublines[0]) > 0:
-                lines[-1] = f'{lines[-1].rstrip()}  {sublines[0]}\n'
+        if token.ttype == TT_CODE:
+            lines.append(token.text)
+            skiped = True
+        elif skiped == True:
+            skiped = False
         else:
-            lines.extend(sublines)
-        last_ttype = token.ttype
+            sublines = generate(token, **kwargs)
+            if token.ttype == TT_EOL:
+                if len(lines) == 0 or last_ttype == TT_EOL:
+                    lines.append(f'{sublines[0]}')
+                elif len(sublines[0]) > 0:
+                    lines[-1] = f'{lines[-1].rstrip()}  {sublines[0]}\n'
+            else:
+                lines.extend(sublines)
+            last_ttype = token.ttype
     return lines
 
-def generate_imports(imports: 'dict[str, set[str]]'):
+def generate_imports(imports: 'dict[str, dict[str, str]]'):
     lines: 'list[str]' = []
-    # lines.append('import numpy as np')
-    for module_name in imports:
-        text = f'from {module_name} import ' + ', '.join(imports[module_name])
-        lines.append(text)
-    return lines
-
-def generate_import_as(import_as: 'dict[str, set[str]]'):
-    lines: 'list[str]' = []
-    for module_name in import_as:
-        text = f'import {module_name} as {import_as[module_name]}'
-        lines.append(text)
+    for from_ in imports:
+        items = []
+        for import_, as_ in imports[from_].items():
+            if as_ is not None:
+                items.append(f'{import_} as {as_}')
+            else:
+                items.append(import_)        
+        if from_ is None:
+            for item in items:
+                lines.append(f'import {item}')
+        else:
+            lines.append(f'from {from_} import ' + ', '.join(items))
     return lines
 
 def generate(token: Token, indent=4, returns:Token = None, **kwargs):
     lines: 'list[str]' = []
-    if token.ttype in [TT_ID, TT_NUM]:
+    if token == None:
+        lines.append('')
+    elif token.ttype in [TT_ID, TT_NUM]:
         lines.append(token.text)
     elif token.ttype == TT_STR:
         lines.append(f"'{token.text}'")

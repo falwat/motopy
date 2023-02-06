@@ -53,7 +53,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-__version__ = '2.0.0'
+__version__ = '2.1.0'
 __all__ = ['make', 'WARN', 'INFO', 'DEBUG']
 __author__ = 'Jackie Wang <falwat@163.com>'
 
@@ -62,6 +62,9 @@ import logging
 from logging import WARN, INFO, DEBUG
 from .constants import *
 from .translate import translate_file
+from .port import *
+
+__all__.extend(port.__all__)
 
 console_handler = None
 
@@ -118,9 +121,6 @@ def make(entry_basename: str, input_path:str='.', output_path:str='.', * ,
         logger = logging.getLogger()
         logger.addHandler(console_handler)
 
-    _locals = {}
-    _globals = _locals
-
     old_path = os.path.abspath(os.curdir)
     os.chdir(output_path)
     # exec(f'os.chdir("{output_path}")', _globals, _locals)
@@ -128,6 +128,6 @@ def make(entry_basename: str, input_path:str='.', output_path:str='.', * ,
     translate_file(entry_basename, input_path, output_path, 
         replaced_functions=replaced_functions,
         indent=indent, logging_level=logging_level, 
-        _globals=_globals, _locals=_locals, **kwargs)
+        **kwargs)
 
     os.chdir(old_path)

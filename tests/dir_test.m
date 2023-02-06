@@ -1,0 +1,2 @@
+listing = dir('.')
+disp(listing)

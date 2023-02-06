@@ -34,7 +34,7 @@ pip install motopy
 
 ## Quick Start
 
-`Motopy` is very easy to use. First please prepare your `Matlab`/`Octave` files, put the script file and the function files with extetion ".m" in a folder, and ensure that your `Matlab`/`Octave` script can be run without exception. And meet [the use requirements of motopy](#The_Use_Requirements_Of_Motopy).Here's a simple example:
+`Motopy` is very easy to use. First please prepare your `Matlab`/`Octave` files, put the script file and the function files with extetion ".m" in a folder, and ensure that your `Matlab`/`Octave` script can be run without exception. And meet [Code Preprocessing](#Code_Preprocessing).Here's a simple example:
 - Create a folder named "demo".
 - In the "demo" folder, create two ".m" files whose names are "fun.m" and "func_test.m". Input the folowing text:
 	```m
@@ -80,8 +80,8 @@ If you have already translated a function, you can specify an replaced function 
 import motopy
 motopy.make(
     entry_basename='func_test', # no extension
-    input_path='输入m文件所在路径', 
-    output_path='输出py文件所在路径',
+    input_path='The path that input ".m" files loaded', 
+    output_path='The path that output ".py" files stored',
     replaced_functions={
         'func': ('func', 'func') # 
     }
@@ -96,6 +96,21 @@ When do you use `replaced_functions`:
 
 - The `.m` function that `motpy` does not support translated yet. You can implement it by yourself.
 
+### Code Annotation
+
+The code line started with "`%%>`" in mfile is a python statment. And will be inserted to generated `python` file. And the next statment will be skiped. For example, the mfile:
+
+```m
+%%> print('this is a code annotation.')
+disp('this statment will be skiped.')
+```
+will be translated to:
+```py
+print('this is a code annotation.')
+```
+
+
+
 ### Output Log
 
 By default, `motopy` generate a log file named "motopy.log" under the `output_path` folder. You can use the 'logging_file' parameter to specify the output location and name of the log file. Using `logging_level` set log level: `WARN|INFO|DEBUG`
@@ -109,7 +124,7 @@ motopy.make(.., logging_level=motopy.DEBUG, ..)
 
 By default, the generated `.py` file uses 4 Spaces for indentation. You can use `indent` parameter specifies the number of Spaces required for indentation.
 
-## The Use Requirements Of Motopy
+## Code Preprocessing
 
 The translation will failed if your `Matlab`/`Octave` code don't satisfy the folowing requirements:
 
@@ -135,6 +150,28 @@ The translation will failed if your `Matlab`/`Octave` code don't satisfy the fol
     for k=1:5
         A(k) = 2*k; % the size of variable A will grow in iteration.
     end
+    ```
+
+- Do not use "`[]`" to define empty array. The folowing mcode will translate failed:
+    ```m
+    A = [];
+    for k=1:5
+        B= rand(2,2);
+        A = [A;B];
+    end
+    disp(A)
+    ```
+    The expression `[A;B]` translate failed. because the empty array A with size of `0x0` cannot concatenate with array B with size of `2x2`.
+
+    An easy way to resolve this problem is to define the array `A` as an empty array with size of `0x2`:
+
+    ```m
+    A = zeros(0,2);
+    for k=1:5
+        B= rand(2,2);
+        A = [A;B];
+    end
+    disp(A)
     ```
 
 ## Implemented Translation

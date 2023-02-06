@@ -5,7 +5,9 @@ This is a part of motopy.
 """
 import copy
 from typing import Union
+from .utils import ExecError
 from .constants import *
+
 class Token:
     """ Token class
     """
@@ -58,7 +60,8 @@ class Token:
         assert isinstance(children, list)
         self.children = children[:]
         for token in children:
-            token.parent = self
+            if token != None:
+                token.parent = self
 
     def append_children(self, token:'Token'):
         assert isinstance(token, Token)
@@ -141,7 +144,10 @@ class Token:
             d['rchild'] = self.rchild.todict()
 
         if len(self.children) > 0:
-            d['children'] = [t.todict() for t in self.children]
+            d['children'] = [t.todict() if t != None else None for t in self.children]
+
+        if len(self.functions) > 0:
+            d['functions'] = {fn:self.functions[fn].todict() for fn in self.functions}
         d['row'] = self.row
         d['col'] = self.col
 
@@ -152,36 +158,32 @@ class Token:
 class RootToken(Token):
     def __init__(self, ttype: str, text: str, children=[]) -> None:
         super().__init__(ttype, text, children=children)
-        self.imports:'dict[str,set[str]]' = {}
-        self.import_as = {}
+        # {_from:{_import:_as}}
+        self.imports:'dict[str,dict[str,str]]' = {}
         self._globals = {}
         self._locals = self._globals
 
-
-    def add_import_as(self, module_name: str, alias_name: str, noexe=False):
-        """ Add module_name to kwargs['import_as'].
-        if module_name is first added, will exec "import <module_name> as <alias_name>".
+    def add_import(self, import_: str, *, from_:str=None, as_:str=None, noexe=False):
         """
-        if noexe == False:
-            text = f'import {module_name} as {alias_name}'
-            if module_name not in self.import_as:
-                exec(text, self._globals, self._globals)
-                if id(self._locals) != id(self._globals):
-                    exec(text, self._globals, self._locals)
-        self.import_as[module_name] = alias_name
-
-    def add_imports(self, module_name: str, object_name: str, noexe=False):
-        """  Add module_name.object_name to kwargs['imports']
-        if object_name is first added, will exec "from <module_name> import <object_name>".
+        root.add_import('json') --> import json
+        root.add_import('numpy', as_='np') --> import numpy as np
+        root.add_import('random', from_='numpy') --> from numpy import random
+        root.add_import('pyplot', from_='matplotlib', as_='plt') --> from matplotlib import pyplot as plt
         """
-        text = f'from {module_name} import {object_name}'
-        if module_name in self.imports:
-            if object_name in self.imports[module_name]:
+        text = ''
+        if from_ is not None:
+            text += f'from {from_} '
+        text += f'import {import_} '
+        if as_ is not None:
+            text += f'as {as_}'
+
+        if from_ in self.imports:
+            if import_ in self.imports[from_]:
                 return
             else:
-                self.imports[module_name].add(object_name)
+                self.imports[from_][import_] = as_
         else:
-            self.imports[module_name] = set([object_name])
+            self.imports[from_] = {import_:as_}
         
         if noexe == False:
             exec(text, self._globals, self._globals)
@@ -191,14 +193,15 @@ class RootToken(Token):
     def exec_(self, text: str):
         exec(text, self._globals, self._locals)
 
-    def eval_(self, text: str, tokens:'list[Token]'):
-        self._locals['__args'] = [t.value for t in tokens]
-        return eval(text, self._globals, self._locals)
-
-    def eval_func(self, token:Token):
-        assert token.ttype == TT_OP and token.text == '?()'
-        self._locals['__args'] = [t.value for t in token.children]
-        return eval(f'{token.lchild.text}(*__args)', self._globals, self._locals)
+    def eval_expr(self, token: Token):
+        assert token.ttype in [TT_OP, TT_NUM, TT_STR, TT_ID]
+        from .generate import generate
+        text = generate(token)[0]
+        try:
+            value = eval(text, self._globals, self._locals)
+        except:
+            raise ExecError(text, self.text, token.row)
+        return value
 
     def build_token(self, value: Union[int, float, complex, str, Token]):
         if isinstance(value, str):

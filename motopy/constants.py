@@ -28,6 +28,8 @@ TT_FMT_STR = 'fmt_str'
 TT_SYM = "sym"
 # entry
 TT_ROOT = "root"
+# code annotation
+TT_CODE = 'code'
 
 
 # see: MATLAB Operators and Special Characters
@@ -65,6 +67,8 @@ op_dict = {
 func_name_dict = {
     'abs': 'np.abs',
     'acos': 'np.arccos',
+    'all': 'all',
+    'any': 'any',
     'asin': 'np.arcsin',
     'atan': 'np.arctan',
     'ceil': 'np.ceil',
@@ -73,10 +77,10 @@ func_name_dict = {
     'disp': 'print',
     'eye': 'np.eye',
     'exp': 'np.exp',
-    'fft': 'np.fft',
+    'fft': 'np.fft.fft',
     'fix': 'np.fix',
     'floor': 'np.floor',
-    'ifft': 'np.ifft',
+    'ifft': 'np.fft.ifft',
     'inv': 'linalg.inv',
     'linspace': 'np.linspace',
     'log': 'np.log',

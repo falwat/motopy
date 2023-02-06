@@ -7,6 +7,7 @@ import json
 import re
 from .constants import *
 from .token import Token, RootToken
+from .utils import ScanError
 
 re_id = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*')
 re_number = re.compile(r'^([0-9]*\.?[0-9]+|[0-9]+\.?[0-9]*)([eE][+-]?[0-9]+)?')
@@ -51,7 +52,7 @@ def scan(lines : 'list[str]'):
                 pos +=1
                 str_len = line[pos:].find('"')
                 if str_len == -1:
-                    raise Exception('quotation marks(") mismatched.')
+                    raise ScanError('quotation marks(") mismatched.', n, pos+1)
                 else:
                     tokens.append(Token(TT_STR, line[pos:pos+str_len], n, pos + 1, root=root))
                     pos += str_len + 1
@@ -65,7 +66,7 @@ def scan(lines : 'list[str]'):
                 pos +=1
                 str_len = line[pos:].find("'")
                 if str_len == -1:
-                    raise Exception("quotation marks(') mismatched.")
+                    raise ScanError("quotation marks(') mismatched.", n, pos+1)
                 else:
                     tokens.append(Token(TT_STR, line[pos:pos+str_len], n, pos + 1, root=root))
                     pos += str_len + 1
@@ -74,7 +75,11 @@ def scan(lines : 'list[str]'):
                 tokens.append(Token(TT_EOL, "", n, pos + 1, root=root))
                 break
             if line[pos] == '%':
-                tokens.append(Token(TT_EOL, line[pos:].strip(), n, pos + 1, root=root))
+                if line[pos:].startswith('%%>'):
+                    text = line[pos:].replace('%%>', '', 1)
+                    tokens.append(Token(TT_CODE, text.strip(), n, pos + 1, translated=True, root=root))
+                else:
+                    tokens.append(Token(TT_EOL, line[pos:].strip(), n, pos + 1, root=root))
                 break
             if line[pos] in ",;[](){}":
                 tokens.append(Token(TT_SYM, line[pos], n, pos + 1, root=root))
@@ -152,8 +157,7 @@ def scan(lines : 'list[str]'):
                 else:
                     tokens.append(Token(TT_SYM, '|', n, pos + 1, root=root))
                 continue
-            print(f"{n, pos} : {line[pos:]}")
-            raise Exception("Tokenize Failed")
+            raise ScanError(line[pos:], n, pos+1)
     tokens = scan_post(tokens)
     root.set_children(tokens)
     return root

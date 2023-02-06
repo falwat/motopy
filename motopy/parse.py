@@ -5,6 +5,7 @@ This is a part of motopy.
 """
 from .constants import *
 from .token import Token
+from .utils import ParseError
 
 def parse_bracket_inner(tokens: 'list[Token]'):
     """
@@ -120,6 +121,9 @@ def parse_block(tokens: 'list[Token]', kw: str = None):
                     t = parse_expression(tokens[si:i])
                 statments.append(t)
                 si = i + 1 
+        elif token.ttype == TT_CODE and len(stack) == 0:
+            statments.append(token)
+            si = i + 1
         elif token.ttype == TT_EOL and len(stack) == 0:
             if si == i:
                 statments.append(token)
@@ -133,14 +137,19 @@ def parse_block(tokens: 'list[Token]', kw: str = None):
             si = i + 1
         elif token.ttype == TT_KW:
             if token.text == 'end' and len(stack) == 0:
-                return statments, tokens[i+1:]
+                return statments, tokens[i+1:], True
             elif kw in ['if', 'elseif'] and \
                 token.text in ['elseif', 'else']:
-                return statments, tokens[i:]
+                return statments, tokens[i:], False
+            elif kw == 'try' and token.text == 'catch':
+                return statments, tokens[i:], False
             elif token.text in matlab_blocks:
-                ss, rem_tokens = parse_block(tokens[i+1:], kw=token.text)
+                ss, rem_tokens, with_end = parse_block(tokens[i+1:], kw=token.text)
                 token.set_children(ss)
                 token.ttype = TT_BLOCK
+                if token.text == 'function' and with_end == False:
+                    tokens = [token] + rem_tokens
+                    return statments, tokens, False
                 statments.append(token)
                 tokens = tokens[:i+1] + rem_tokens
                 if token.text == 'if':
@@ -149,7 +158,7 @@ def parse_block(tokens: 'list[Token]', kw: str = None):
                     token.set_children([_token])
                     i += 1
                     while i < len(tokens) and tokens[i].text in ['elseif', 'else']:
-                        ss, rem_tokens = parse_block(tokens[i+1:], kw=tokens[i].text)
+                        ss, rem_tokens, with_end = parse_block(tokens[i+1:], kw=tokens[i].text)
                         tokens[i].set_children(ss)
                         tokens[i].ttype = TT_BLOCK
                         token.append_children(tokens[i])
@@ -157,12 +166,16 @@ def parse_block(tokens: 'list[Token]', kw: str = None):
                         i += 1
                 si = i + 1
         i += 1
-    if kw == 'function' and i >= len(tokens):
-        # function without end
-        return statments, tokens[i:]
     if si < len(tokens):
         statments.append(parse_expression(tokens[si:]))
-    return statments, tokens  
+        si = len(tokens)
+    if kw == 'function' and i >= len(tokens):
+        # function without end
+        tokens = []
+        return statments, tokens, False
+    else:
+        return statments, tokens[si:], False
+     
 
 def split_func_block(token: Token):
     """ Split `token` of function
@@ -183,18 +196,51 @@ def split_func_block(token: Token):
             ltoken.text = ','
             token.set_lchild(ltoken)
         else:
-            raise Exception(f'syntax error at line {token.row}')
+            raise ParseError(token.text, token.row, token.col)
     elif token_header.text == '?()':
         # without return value
         token.set_rchild(token_header)
         token.set_lchild()
     else:
-        raise Exception(f'syntax error at line {token.row}')
+        raise ParseError(token.text, token.row, token.col)
 
     token.children = token.children[1:]
     token.text = 'def'
     fname = token.rchild.lchild.text
     return fname
+
+def parse_post(token:Token):
+    """
+    the token tree:
+        -":"-
+       /     \
+     -":"-   b
+    /     \
+    a     s
+    will convert to:
+     -"::"-
+    /   |   \
+    a  [s]  b
+    """
+    ltoken = token.lchild
+    rtoken = token.rchild
+    if ltoken != None:
+        parse_post(ltoken)
+    if rtoken != None:
+        parse_post(rtoken)
+    for subtoken in token.children:
+        parse_post(subtoken)
+
+    if token.ttype == TT_OP and token.text == ':':
+        if ltoken != None and ltoken.ttype == TT_OP and ltoken.text == ':':
+            # a:s:b
+            a = ltoken.lchild
+            s = ltoken.rchild
+            b = token.rchild
+            token.text = '::'
+            token.set_lchild(a)
+            token.set_rchild(b)
+            token.set_children([s])
 
 def parse_function(token: Token):
     assert token.ttype == TT_ROOT or token.ttype == TT_BLOCK and token.text == 'function'
@@ -210,9 +256,11 @@ def parse_function(token: Token):
             token.functions[fname] = t
     del token.children[i:]
 
-
 def parse(root: Token):
-    statments, _ = parse_block(root.children)
+    statments, tokens, _ = parse_block(root.children)
     root.set_children(statments)
+    if len(tokens) > 0:
+        root.extend_children(tokens)
+    parse_post(root)
     parse_function(root)
 
